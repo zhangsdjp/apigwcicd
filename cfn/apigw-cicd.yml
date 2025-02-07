@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: CodePipeline For lambda apigw deployment
-# Stack name: api-lambda-cicd-stack
+# Stack name: apigw-cicd-stack
 # ------------------------------------------------------------#
 # Parameters
 # ------------------------------------------------------------#
 Parameters:
   Service:
     Type: String
-    Default: api-lambda
+    Default: apigw
   Env:
     Type: String
     Default: dev
@@ -26,6 +26,21 @@ Parameters:
     Type: String
     Default: cfn/apigw-integration-output.yml
     Description: Build Output Template Filename
+
+  # github parameter
+  GithubConnectionArn:
+    Type: String
+    Default: "arn:aws:codeconnections:ap-northeast-1:588322030717:connection/541c4914-e54f-4e26-a922-206cfcf02e93"
+  GitHubRepo:
+    Type: String
+    Default: "zhangsdjp/apigwcicd"
+  GitHubBranch:
+    Type: String
+    Default: main
+  SourceActionName:
+    Type: String
+    Default: Github
+
 
   # The following env variables will be defined in buildspec.yaml env section.
   # SonarqubePrj:
@@ -527,20 +542,24 @@ Resources:
       Stages:
         - Name: Source
           Actions:
-            - Name: Settings
+            - InputArtifacts: []
+              Name: Github
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: '1'
-                Provider: CodeCommit
-              Configuration:
-                RepositoryName: !Ref CodeCommitRepository
-                PollForSourceChanges: false
-                BranchName: master
-              RunOrder: 1
+                Version: 1
+                Provider: CodeStarSourceConnection
               OutputArtifacts:
                 - Name: App01
-            # - Name: Source
+              Configuration:
+                FullRepositoryId: !Ref GitHubRepo
+                ConnectionArn: !Ref GithubConnectionArn
+                BranchName: !Ref GitHubBranch
+                DetectChanges: false
+              RunOrder: 1
+
+            # CodeCommitがあった時に必要だったもの          
+            # - Name: Settings
             #   ActionTypeId:
             #     Category: Source
             #     Owner: AWS
@@ -552,7 +571,20 @@ Resources:
             #     BranchName: master
             #   RunOrder: 1
             #   OutputArtifacts:
-            #     - Name: App02
+            #     - Name: App01
+            # # - Name: Source
+            # #   ActionTypeId:
+            # #     Category: Source
+            # #     Owner: AWS
+            # #     Version: '1'
+            # #     Provider: CodeCommit
+            # #   Configuration:
+            # #     RepositoryName: !Ref CodeCommitRepository
+            # #     PollForSourceChanges: false
+            # #     BranchName: master
+            # #   RunOrder: 1
+            # #   OutputArtifacts:
+            # #     - Name: App02
 
         - Name: Build
           Actions:

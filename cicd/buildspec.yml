@@ -1,11 +1,17 @@
 version: 0.2
 env:
   variables:
-    SonarqubePrj: "cicd-example"
+    # SonarqubePrj: "cicd-example"
+    # SonarqubeSrc: "./src"
+    # SonarqubeUrl: "http://{あなたのEC2IPアドレス}:9000"
+    # SonarqubeToken: "{SonarQubeで発行したトークン}"
+    # CodePipelineS3Bucket: "dev-apigw-s3-artifactbucket-{あなたのAWSアカウントID}"
+
+    SonarqubePrj: "superset-prj"
     SonarqubeSrc: "./src"
-    SonarqubeUrl: "http://{あなたのEC2IPアドレス}:9000"
-    SonarqubeToken: "{SonarQubeで発行したトークン}"
-    CodePipelineS3Bucket: "dev-api-lambda-s3-artifactbucket-{あなたのAWSアカウントID}"
+    SonarqubeUrl: "http://13.114.172.180:9000"
+    SonarqubeToken: "sqp_1f2753c0680e7dbbf46c0101d3495d5ca19e7c19"
+    CodePipelineS3Bucket: "dev-apigw-s3-artifactbucket-588322030717"
 
 
 phases: 
