@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Cloudformation to modify existing apigw and lambda
+# Stackn name: apigw-integration-stack
+
+# Parameters
+Parameters: 
+  Service:
+    Type: String
+    Default: api-lambda
+  Env: 
+    Description: The env prefix
+    Type: String 
+    Default: dev
+    AllowedValues: 
+      - dev 
+      - stg 
+      - prod
+  # ApiGwId:
+  #   Type: String
+  #   Default: LambdaProxyAPI-2
+  FunctionName:
+    Type: String
+    Default: GetStartedLambdaProxyIntegrationApi
+
+  LoggingLevel:
+    Type: String
+    AllowedValues: [NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL]    
+    Default: "INFO"     
+
+
+# -------------------------------------------------------------- #
+# Resources
+# -------------------------------------------------------------- #
+Resources:
+
+  # ApiGateway:
+  #   Type: AWS::ApiGateway::RestApi
+  #   Properties:
+  #     Name: !Ref ApiGwId
+  #     EndpointConfiguration:
+  #       Types:
+  #         - REGIONAL
+
+  # ProxyResource:
+  #   Type: AWS::ApiGateway::Resource
+  #   Properties:
+  #     RestApiId: !Ref ApiGateway # ApiGw
+  #     ParentId: !GetAtt ApiGateway.RootResourceId
+  #     PathPart: helloworld #'{proxy+}'
+
+  # ApiGatewayRootMethod:
+  #   Type: 'AWS::ApiGateway::Method'
+  #   Properties:
+  #     RestApiId: !Ref ApiGateway # ApiGwId
+  #     ResourceId: !Ref ProxyResource # ApiGwId 
+  #     HttpMethod: ANY
+  #     AuthorizationType: NONE
+  #     Integration:
+  #       Type: AWS_PROXY
+  #       IntegrationHttpMethod: POST
+  #       IntegrationResponses:
+  #         - StatusCode: 200
+  #       Uri: !Sub >-
+  #         arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${FunctionName}/invocations
+
+  ApiGatewayLambdaPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: LambdaFunction
+    Properties:
+      FunctionName: !Ref FunctionName
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      # Condition:
+      #   ArnLike: 
+      #     "AWS:SourceArn": "arn:aws:execute-api:ap-northeast-1:588322030717:*/*/*/*"
+
+
+# IAM Role
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GetStartedLambdaBasicExecutionRoleApi
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+
+# Lambda
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref FunctionName
+      Handler: "index.handler"
+      Role: !GetAtt LambdaFunctionRole.Arn
+      Environment:
+        Variables:
+         RetentionDays : 60
+      MemorySize: 128
+      Timeout: 60
+      Code: ../src/GetStartedLambdaProxyIntegration/index.mjs # ./index.mjs
+        # S3Bucket: !Sub ${Env}-${Service}-s3-artifactbucket-${AWS::AccountId}
+        # S3Key: lambda/hello.zip
+
+        # ZipFile: |
+        #   import json
+
+        #   def handler(event, context):
+        #       print(event)
+        #       greeter = 'World'
+        #       try:
+        #           if (event['queryStringParameters']) and (event['queryStringParameters']['greeter']) and (
+        #                   event['queryStringParameters']['greeter'] is not None):
+        #               greeter = event['queryStringParameters']['greeter']
+        #       except KeyError:
+        #           print('No greeter')
+
+        #       try:
+        #           if (event['multiValueHeaders']) and (event['multiValueHeaders']['greeter']) and (
+        #                   event['multiValueHeaders']['greeter'] is not None):
+        #               greeter = " and ".join(event['multiValueHeaders']['greeter'])
+        #       except KeyError:
+        #           print('No greeter')
+
+        #       try:
+        #           if (event['headers']) and (event['headers']['greeter']) and (
+        #                   event['headers']['greeter'] is not None):
+        #               greeter = event['headers']['greeter']
+        #       except KeyError:
+        #           print('No greeter')
+
+        #       if (event['body']) and (event['body'] is not None):
+        #           body = json.loads(event['body'])
+        #           try:
+        #               if (body['greeter']) and (body['greeter'] is not None):
+        #                   greeter = body['greeter']
+        #           except KeyError:
+        #               print('No greeter')
+
+        #       res = {
+        #           "statusCode": 200,
+        #           "headers": {
+        #               "Content-Type": "*/*"
+        #           },
+        #           "body": "Hello, " + greeter + "!"
+        #       }
+
+        #       return res
+      Runtime: nodejs20.x #"python3.9"
+

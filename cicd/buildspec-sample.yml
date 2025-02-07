@@ -1,0 +1,102 @@
+version: 0.2
+env:
+  variables:
+    SonarqubePrj: "superset-prj"
+    SonarqubeSrc: "./src"
+    SonarqubeUrl: "http://13.114.172.180:9000"
+    SonarqubeToken: "sqp_1f2753c0680e7dbbf46c0101d3495d5ca19e7c19"
+    CodePipelineS3Bucket: "dev-api-lambda-s3-artifactbucket-588322030717"
+
+
+phases: 
+  install:  
+    runtime-versions:  
+      java: corretto11
+    # commands:
+    #   - echo $DOCKER_TOKEN | docker login -u $DOCKER_USER --password-stdin
+
+  pre_build:
+    commands:
+      - echo Install sonar-scanner.zip ...
+      - unzip ./cicd/sonar-scanner-cli-6.1.0.4477-linux-x64.zip
+      - export PATH=${PATH}:./sonar-scanner-6.1.0.4477-linux-x64/bin
+      - echo ${PATH}
+
+
+  build:
+    on-failure: ABORT
+    commands:
+      - echo Build started on `date`
+      - echo aws apigateway import-rest-api ... ./src/apigw/LambdaProxyAPI-swagger.yml
+      - APIGW_API_NAME=$(grep "title:" src/apigw/LambdaProxyAPI-swagger.yml | head -n 1 | awk -F':' '{print $2}' | tr -d \" |tr -d ' ')
+      - echo APIGW_API_NAME=${APIGW_API_NAME}
+      - APIGW_API_ID=$(aws apigateway import-rest-api --cli-binary-format raw-in-base64-out --parameters endpointConfigurationTypes=REGIONAL --body file://src/apigw/LambdaProxyAPI-swagger.yml | grep "id" | awk -F',' '{print $1}' | cut -d ' ' -f6 | tr -d \")
+      - echo APIGW_API_ID=${APIGW_API_ID}
+
+      - echo Start Sonarqube ...
+      - |
+        sonar-scanner \
+          -Dsonar.projectKey=${SonarqubePrj} \
+          -Dsonar.sources=${SonarqubeSrc} \
+          -Dsonar.host.url=${SonarqubeUrl} \
+          -Dsonar.token=${SonarqubeToken} | tee sonar-scanner.log
+
+      - echo SONAR=$?
+
+      - |
+        if [[ "${SONAR}" -ne 0 ]]; then
+          echo "sonar-scanner result NG exit=${SONAR}."
+          exit ${SONAR}
+        fi
+
+      - sleep 20
+      - echo Check sonar-scanner result ...
+
+      - report_uri="http:$(grep "More about the report processing at http:" sonar-scanner.log | awk -F'http:' '{print $2}')"
+      - echo report_uri=${report_uri}
+
+      # sonar_result=$(curl --request GET --url ${report_uri} --header "Authorization: Bearer ${SonarqubeToken}")
+      - |
+        sonar_result=$(curl -u ${SonarqubeToken}: ${report_uri})
+        STATUS=$(echo $sonar_result | awk -F'status' '{print $2}' | awk -F':' '{print $2}' | awk -F',' '{print $1}' |  tr -d \" |tr -d ' ')
+
+      - echo STATUS=${STATUS}
+        
+      - |
+        if [ "${STATUS}" != "SUCCESS" ]; then
+          echo "sonar-scanner status NG, STATUS=${STATUS}."
+          exit 2
+        fi
+
+
+  post_build:
+    on-failure: ABORT
+    commands:
+      - echo Build completed on `date`
+      - echo Deploy ApiGateway on `date`
+      - echo aws apigateway create-deployment ...
+      - aws apigateway create-deployment --rest-api-id ${APIGW_API_ID} --stage-name dev --stage-description 'Development Stage'
+      - echo "{\"apigateway name\":\"${APIGW_API_NAME}\",\"APIGW_API_ID\":\"${APIGW_API_ID}\"}" > imageDetail.json
+
+      - echo Create lambda zip file, hello.zip ...
+      - |
+        cd src/GetStartedLambdaProxyIntegration
+        zip -r hello.zip index.mjs
+        cd ../..
+      - echo Copy lambda function zip file to s3://${CodePipelineS3Bucket}/lambda/
+      - aws s3 cp src/GetStartedLambdaProxyIntegration/hello.zip s3://${CodePipelineS3Bucket}/lambda/
+
+      - echo Package cloudformation template file ...
+      - |
+        cd ./cfn
+        aws cloudformation package --template-file apigw-integration.yml \
+            --output-template-file apigw-integration-output.yml --s3-bucket "${CodePipelineS3Bucket}" \
+            --s3-prefix "template"
+        pwd
+        ls -la
+
+artifacts:
+  files: 
+    - imageDetail.json
+    - ./cfn/*
+
