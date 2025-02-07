@@ -9,8 +9,8 @@ env:
 
     SonarqubePrj: "superset-prj"
     SonarqubeSrc: "./src"
-    SonarqubeUrl: "http://18.183.90.196:9000" # "http://13.114.172.180:9000"
-    SonarqubeToken: "sqp_1f2753c0680e7dbbf46c0101d3495d5ca19e7c19"
+    SonarqubeUrl: "http://18.183.90.196:9000"
+    SonarqubeToken: "sqp_6e585ab436cdb1f71e70a82585bccc7837b48a60"
     CodePipelineS3Bucket: "dev-apigw-s3-artifactbucket-588322030717"
 
 
