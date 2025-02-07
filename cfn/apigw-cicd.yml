@@ -30,7 +30,7 @@ Parameters:
   # github parameter
   GithubConnectionArn:
     Type: String
-    Default: "arn:aws:codeconnections:ap-northeast-1:588322030717:connection/541c4914-e54f-4e26-a922-206cfcf02e93"
+    Default: "arn:aws:codeconnections:ap-northeast-1:588322030717:connection/71efd25f-d85a-4e9d-9ca0-a876b72a0d33" # "arn:aws:codeconnections:ap-northeast-1:588322030717:connection/541c4914-e54f-4e26-a922-206cfcf02e93"
   GitHubRepo:
     Type: String
     Default: "zhangsdjp/apigwcicd"
@@ -704,5 +704,4 @@ Resources:
                 Events:
                   - CLOSED
             SourceActionName: !Ref SourceActionName
-
 
